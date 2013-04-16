@@ -30,8 +30,8 @@ function! g:SyntasticCursorNotifier.reset(loclist)
     for buf in a:loclist.getBuffers()
         " TODO: there is no way to unlet variables in buffers,
         " the best we can do is to set them to {}
-        call setbufvar(buf, 'syntastic_messages', {})
-        call setbufvar(buf, 'oldLine', -1)
+        call setbufvar(str2nr(buf), 'syntastic_messages', {})
+        call setbufvar(str2nr(buf), 'oldLine', -1)
     endfor
 endfunction
 
