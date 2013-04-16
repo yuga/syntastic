@@ -21,13 +21,18 @@ function! g:SyntasticCursorNotifier.refresh(loclist)
     let enabled = exists('b:syntastic_echo_current_error') ? b:syntastic_echo_current_error : g:syntastic_echo_current_error
     if enabled && a:loclist.hasIssuesToDisplay()
         let b:syntastic_messages = a:loclist.messages()
+        let b:oldLine = -1
         autocmd syntastic CursorMoved * call g:SyntasticRefreshCursor()
     endif
 endfunction
 
 function! g:SyntasticCursorNotifier.reset(loclist)
-    unlet! b:syntastic_messages
-    let b:oldLine = -1
+    for buf in a:loclist.getBuffers()
+        " TODO: there is no way to unlet variables in buffers,
+        " the best we can do is to set them to {}
+        call setbufvar(buf, 'syntastic_messages', {})
+        call setbufvar(buf, 'oldLine', -1)
+    endfor
 endfunction
 
 " Private methods {{{1
