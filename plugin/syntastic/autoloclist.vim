@@ -21,7 +21,7 @@ function! g:SyntasticAutoloclistNotifier.refresh(loclist)
 endfunction
 
 function! g:SyntasticAutoloclistNotifier.AutoToggle(loclist)
-    if a:loclist.hasErrorsOrWarningsToDisplay()
+    if !a:loclist.isEmpty()
         if g:syntastic_auto_loc_list == 1
             call a:loclist.show()
         endif

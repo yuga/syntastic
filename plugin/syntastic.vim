@@ -70,15 +70,21 @@ augroup syntastic
     autocmd BufReadPost * if g:syntastic_check_on_open | call s:UpdateErrors(1) | endif
     autocmd BufWritePost * call s:UpdateErrors(1)
 
-    autocmd BufWinEnter * if empty(&bt) | call g:SyntasticAutoloclistNotifier.AutoToggle(g:SyntasticLoclist.Current()) | endif
+    autocmd BufWinEnter * call s:BufWinEnterHook()
 
     " TODO: the next autocmd should be "autocmd BufWinLeave * if empty(&bt) | lclose | endif"
     " but in recent versions of Vim lclose can no longer be called from BufWinLeave
-    autocmd BufEnter * call s:BufWinLeaveCleanup()
+    autocmd BufEnter * call s:BufEnterHook()
 augroup END
 
 
-function! s:BufWinLeaveCleanup()
+function! s:BufWinEnterHook()
+    if empty(&bt)
+        call g:SyntasticAutoloclistNotifier.AutoToggle(g:SyntasticLoclist.current())
+    endif
+endfunction
+
+function! s:BufEnterHook()
     " TODO: at this point there is no b:syntastic_loclist
     let loclist = filter(getloclist(0), 'v:val["valid"] == 1')
     let buffers = syntastic#util#unique(map( loclist, 'v:val["bufnr"]' ))
@@ -101,21 +107,22 @@ function! s:UpdateErrors(auto_invoked, ...)
         endif
     end
 
-    let loclist = g:SyntasticLoclist.Current()
+    let loclist = g:SyntasticLoclist.current()
     call s:notifiers.refresh(loclist)
 
-    if (g:syntastic_always_populate_loc_list || g:syntastic_auto_jump) && loclist.hasErrorsOrWarningsToDisplay()
-        call setloclist(0, loclist.filteredRaw())
+    if (g:syntastic_always_populate_loc_list || g:syntastic_auto_jump) && !loclist.isEmpty()
+        call setloclist(0, loclist.getFilteredLoclist())
         if g:syntastic_auto_jump
-            silent! ll
+            silent! lrewind
         endif
     endif
 endfunction
 
 "clear the loc list for the buffer
 function! s:ClearCache()
-    call s:notifiers.reset(g:SyntasticLoclist.Current())
-    unlet! b:syntastic_loclist
+    let loclist = g:SyntasticLoclist.current()
+    call s:notifiers.reset(loclist)
+    call loclist.resetBuffers()
 endfunction
 
 function! s:CurrentFiletypes()
@@ -132,7 +139,6 @@ function! s:CacheErrors(...)
 
     if !s:SkipFile()
         for ft in s:CurrentFiletypes()
-
             if a:0
                 let checker = s:registry.getChecker(ft, a:1)
                 if !empty(checker)
@@ -148,7 +154,7 @@ function! s:CacheErrors(...)
                 let loclist = checker.getLocList()
 
                 if !loclist.isEmpty()
-                    let newLoclist = newLoclist.extend(loclist)
+                    call newLoclist.extend(loclist)
 
                     "only get errors from one checker at a time
                     break
@@ -157,7 +163,7 @@ function! s:CacheErrors(...)
         endfor
     endif
 
-    let b:syntastic_loclist = newLoclist
+    call newLoclist.updateBuffers()
 endfunction
 
 function! s:ToggleMode()
@@ -169,7 +175,7 @@ endfunction
 
 "display the cached errors for this buf in the location list
 function! s:ShowLocList()
-    let loclist = g:SyntasticLoclist.Current()
+    let loclist = g:SyntasticLoclist.current()
     call loclist.show()
 endfunction
 
@@ -215,8 +221,10 @@ endfunction
 "
 "return '' if no errors are cached for the buffer
 function! SyntasticStatuslineFlag()
-    let loclist = g:SyntasticLoclist.Current()
-    if loclist.hasErrorsOrWarningsToDisplay()
+    let loclist = g:SyntasticLoclist.current()
+    let issues = loclist.loclistInBuffer()
+    let num_issues = len(issues)
+    if num_issues
         let errors = loclist.errors()
         let warnings = loclist.warnings()
 
@@ -238,10 +246,10 @@ function! SyntasticStatuslineFlag()
         "sub in the total errors/warnings/both
         let output = substitute(output, '\C%w', num_warnings, 'g')
         let output = substitute(output, '\C%e', num_errors, 'g')
-        let output = substitute(output, '\C%t', loclist.length(), 'g')
+        let output = substitute(output, '\C%t', num_issues, 'g')
 
         "first error/warning line num
-        let output = substitute(output, '\C%F', loclist.filteredRaw()[0]['lnum'], 'g')
+        let output = substitute(output, '\C%F', num_issues ? issues[0]['lnum'] : '', 'g')
 
         "first error line num
         let output = substitute(output, '\C%fe', num_errors ? errors[0]['lnum'] : '', 'g')

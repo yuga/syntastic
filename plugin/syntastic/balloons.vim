@@ -27,8 +27,8 @@ endfunction
 " Update the error balloons
 function! g:SyntasticBalloonsNotifier.refresh(loclist)
     let b:syntastic_balloons = {}
-    if a:loclist.hasErrorsOrWarningsToDisplay()
-        for i in a:loclist.filteredRaw()
+    if a:loclist.hasIssuesToDisplay()
+        for i in a:loclist.getFilteredLoclist()
             if has_key(b:syntastic_balloons, i['lnum'])
                 let b:syntastic_balloons[i['lnum']] .= "\n" . i['text']
             else

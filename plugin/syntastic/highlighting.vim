@@ -32,7 +32,7 @@ function! g:SyntasticHighlightingNotifier.refresh(loclist)
     let fts = substitute(&ft, '-', '_', 'g')
     for ft in split(fts, '\.')
 
-        for item in a:loclist.filteredRaw()
+        for item in a:loclist.getFilteredLoclist()
             let group = item['type'] == 'E' ? 'SyntasticError' : 'SyntasticWarning'
 
             if has_key(item, 'hl')

@@ -7,6 +7,7 @@ let g:SyntasticLoclist = {}
 
 " Public methods {{{1
 
+" constructor
 function! g:SyntasticLoclist.New(rawLoclist)
     let newObj = copy(self)
     let newObj._quietWarnings = g:syntastic_quiet_warnings
@@ -21,96 +22,78 @@ function! g:SyntasticLoclist.New(rawLoclist)
     endfor
 
     let newObj._rawLoclist = llist
-    let newObj._hasErrorsOrWarningsToDisplay = -1
+    let newObj._owner = bufnr("")
+    call newObj._resetCaches()
 
     return newObj
 endfunction
 
-function! g:SyntasticLoclist.Current()
-    if !exists("b:syntastic_loclist")
-        let b:syntastic_loclist = g:SyntasticLoclist.New([])
-    endif
-    return b:syntastic_loclist
-endfunction
-
-function! g:SyntasticLoclist.extend(other)
-    let list = self.toRaw()
-    call extend(list, a:other.toRaw())
-    return g:SyntasticLoclist.New(list)
-endfunction
-
+" returns the raw loclist
 function! g:SyntasticLoclist.toRaw()
     return copy(self._rawLoclist)
 endfunction
 
-function! g:SyntasticLoclist.filteredRaw()
-    return copy(self._quietWarnings ? self.errors() : self._rawLoclist)
+" extends loclist
+function! g:SyntasticLoclist.extend(other)
+    call extend(self._rawLoclist, a:other.toRaw())
+    call self._resetCaches()
 endfunction
 
-function! g:SyntasticLoclist.quietWarnings()
+" returns loclist filtered according to g:syntastic_quiet_warnings
+" caches results
+function! g:SyntasticLoclist.getFilteredLoclist()
+    if !exists("self._cachedFiltered")
+        let self._cachedFiltered = copy(self._quietWarnings ? self.filter({'type': 'E'}) : self._rawLoclist)
+    endif
+    return self._cachedFiltered
+endfunction
+
+" returns the main buffer from which loclist was created
+function! g:SyntasticLoclist.getOwner()
+    return self._owner
+endfunction
+
+" returns g:syntastic_quiet_warnings at the time this instance was created
+function! g:SyntasticLoclist.getQuietWarnings()
     return self._quietWarnings
 endfunction
 
+" returns the list of buffers referenced by loclist
+" main buffer is included too, even if it doesn't have errors
+function! g:SyntasticLoclist.getBuffers()
+    let llist = copy(self.getFilteredLoclist())
+    return syntastic#util#unique(map( llist, 'v:val["bufnr"]' ) + [self.getOwner()])
+endfunction
+
+" sets b:syntastic_loclist for all buffers referenced by loclist
+function! g:SyntasticLoclist.updateBuffers()
+    for buf in self.getBuffers()
+        call setbufvar(str2nr(buf), 'syntastic_loclist', self)
+    endfor
+endfunction
+
+" deletes b:syntastic_loclist from all buffers referenced by loclist
+" TODO: there is no way to unlet variables in buffers,
+" the best we can do is to set them to {}
+function! g:SyntasticLoclist.resetBuffers()
+    for buf in self.getBuffers()
+        call setbufvar(str2nr(buf), 'syntastic_loclist', {})
+    endfor
+endfunction
+
+" returns true if there are issues to display in any buffer
+" filtered by g:syntastic_quiet_warnings
 function! g:SyntasticLoclist.isEmpty()
-    return empty(self._rawLoclist)
+    return empty(self.getFilteredLoclist())
 endfunction
 
-function! g:SyntasticLoclist.length()
-    return len(self._rawLoclist)
-endfunction
-
-function! g:SyntasticLoclist.hasErrorsOrWarningsToDisplay()
-    if self._hasErrorsOrWarningsToDisplay >= 0
-        return self._hasErrorsOrWarningsToDisplay
-    endif
-    let self._hasErrorsOrWarningsToDisplay = empty(self._rawLoclist) ? 0 : (!self._quietWarnings || len(self.errors()))
-    return self._hasErrorsOrWarningsToDisplay
-endfunction
-
-function! g:SyntasticLoclist.errors()
-    if !exists("self._cachedErrors")
-        let self._cachedErrors = self.filter({'type': "E"})
-    endif
-    return self._cachedErrors
-endfunction
-
-function! g:SyntasticLoclist.warnings()
-    if !exists("self._cachedWarnings")
-        let self._cachedWarnings = self.filter({'type': "W"})
-    endif
-    return self._cachedWarnings
-endfunction
-
-" cache used by EchoCurrentError()
-function! g:SyntasticLoclist.messages()
-    if !exists("self._cachedMessages")
-        let self._cachedMessages = {}
-
-        for e in self.errors()
-            if !has_key(self._cachedMessages, e['lnum'])
-                let self._cachedMessages[e['lnum']] = e['text']
-            endif
-        endfor
-
-        if !self._quietWarnings
-            for e in self.warnings()
-                if !has_key(self._cachedMessages, e['lnum'])
-                    let self._cachedMessages[e['lnum']] = e['text']
-                endif
-            endfor
-        endif
-    endif
-
-    return self._cachedMessages
-endfunction
-
-"Filter the list and return new native loclist
-"e.g.
+" filter the list and return new native loclist e.g.
+"
 "  .filter({'bufnr': 10, 'type': 'e'})
 "
-"would return all errors for buffer 10.
+" would return all errors for buffer 10.
 "
-"Note that all comparisons are done with ==?
+" note that all comparisons are done with ==?
 function! g:SyntasticLoclist.filter(filters)
     let rv = []
 
@@ -131,10 +114,10 @@ function! g:SyntasticLoclist.filter(filters)
     return rv
 endfunction
 
-"display the cached errors for this buf in the location list
+" display the cached errors for this buf in the location list
 function! g:SyntasticLoclist.show()
-    if self.hasErrorsOrWarningsToDisplay()
-        call setloclist(0, self.filteredRaw())
+    if self.hasIssuesToDisplay()
+        call setloclist(0, self.getFilteredLoclist())
         let num = winnr()
         exec "lopen " . g:syntastic_loc_list_height
         if num != winnr()
@@ -143,8 +126,108 @@ function! g:SyntasticLoclist.show()
     endif
 endfunction
 
+" Public methods localized to a buffer {{{1
+
+" returns b:syntastic_loclist for a given buffer
+" creates a new loclist if there is no b:syntastic_loclist yet
+function! g:SyntasticLoclist.current(...)
+    let buf = a:0 ? str2nr(a:1) : bufnr("")
+    let llist = getbufvar(buf, 'syntastic_loclist', {})
+    if empty(llist)
+        let llist = g:SyntasticLoclist.New([])
+        call setbufvar(buf, 'syntastic_loclist', llist)
+    endif
+    return llist
+endfunction
+
+" returns loclist filtered by a given buffer
+" g:syntastic_quiet_warnings is not consulted
+function! g:SyntasticLoclist.loclistInBuffer(...)
+    let buf = a:0 ? str2nr(a:1) : bufnr("")
+    if !has_key(self._cachedLoclist, buf)
+        let self._cachedLoclist[buf] = self.filter({'bufnr': buf})
+    endif
+    return self._cachedLoclist[buf]
+endfunction
+
+" returns the number of issues in a given buffer
+" g:syntastic_quiet_warnings is not consulted
+function! g:SyntasticLoclist.length(...)
+    let buf = a:0 ? str2nr(a:1) : bufnr("")
+    return len(self.loclistInBuffer(buf))
+endfunction
+
+" returns true if there are errors or warnings to be displayed
+" in a given buffer, filtered by g:syntastic_quiet_warnings
+function! g:SyntasticLoclist.hasIssuesToDisplay(...)
+    let buf = a:0 ? str2nr(a:1) : bufnr("")
+    if !has_key(self._hasIssuesToDisplay, buf)
+        let self._hasIssuesToDisplay[buf] = len(self._quietWarnings ? self.errors(buf) : self.loclistInBuffer(buf))
+    endif
+    return self._hasIssuesToDisplay[buf]
+endfunction
+
+" returns the list of errors in a given buffer
+function! g:SyntasticLoclist.errors(...)
+    let buf = a:0 ? str2nr(a:1) : bufnr("")
+    if !has_key(self._cachedErrors, buf)
+        let self._cachedErrors[buf] = self.filter({'type': 'E', 'bufnr': buf})
+    endif
+    return self._cachedErrors[buf]
+endfunction
+
+" returns the list of warnings in a given buffer
+" g:syntastic_quiet_warnings is not consulted
+function! g:SyntasticLoclist.warnings(...)
+    let buf = a:0 ? str2nr(a:1) : bufnr("")
+    if !has_key(self._cachedWarnings, buf)
+        let self._cachedWarnings[buf] = self.filter({'type': 'W', 'bufnr': buf})
+    endif
+    return self._cachedWarnings[buf]
+endfunction
+
+" returns the list of messages in a given buffer, filtered by
+" g:syntastic_quiet_warnings; caches results for g:SyntasticRefreshCursor()
+function! g:SyntasticLoclist.messages(...)
+    let buf = a:0 ? str2nr(a:1) : bufnr("")
+    if !has_key(self._cachedMessages, buf)
+        let self._cachedMessages[buf] = {}
+
+        for e in self.errors(buf)
+            if !has_key(self._cachedMessages[buf], e['lnum'])
+                let self._cachedMessages[buf][e['lnum']] = e['text']
+            endif
+        endfor
+
+        if !self._quietWarnings
+            for e in self.warnings(buf)
+                if !has_key(self._cachedMessages[buf], e['lnum'])
+                    let self._cachedMessages[buf][e['lnum']] = e['text']
+                endif
+            endfor
+        endif
+    endif
+
+    return self._cachedMessages[buf]
+endfunction
+
+" Private methods {{{1
+
+" resets local caches
+function! g:SyntasticLoclist._resetCaches()
+    let self._hasIssuesToDisplay = {}
+    let self._cachedLoclist = {}
+    let self._cachedErrors = {}
+    let self._cachedWarnings = {}
+    let self._cachedMessages = {}
+    if exists("self._cachedFiltered")
+        unlet! self._cachedFiltered
+    endif
+endfunction
+
 " Non-method functions {{{1
 
+" hides the error window
 function! g:SyntasticLoclistHide()
     if len(filter( range(1, bufnr('$')), 'syntastic#util#bufIsActive(v:val)' )) == 1
         quit

@@ -13,15 +13,14 @@ let g:SyntasticCursorNotifier = {}
 
 function! g:SyntasticCursorNotifier.New()
     let newObj = copy(self)
-    let b:oldLine = -1
     return newObj
 endfunction
 
 function! g:SyntasticCursorNotifier.refresh(loclist)
     autocmd! syntastic CursorMoved
     let enabled = exists('b:syntastic_echo_current_error') ? b:syntastic_echo_current_error : g:syntastic_echo_current_error
-    if enabled && a:loclist.hasErrorsOrWarningsToDisplay()
-        let b:syntastic_messages = copy(a:loclist.messages())
+    if enabled && a:loclist.hasIssuesToDisplay()
+        let b:syntastic_messages = a:loclist.messages()
         autocmd syntastic CursorMoved * call g:SyntasticRefreshCursor()
     endif
 endfunction
@@ -35,7 +34,7 @@ endfunction
 
 " The following defensive nonsense is needed because of the nature of autocmd
 function! g:SyntasticRefreshCursor()
-    if !exists('b:syntastic_messages')
+    if !exists('b:syntastic_messages') || empty(b:syntastic_messages)
         " file not checked
         return
     endif
@@ -50,7 +49,7 @@ function! g:SyntasticRefreshCursor()
     let b:oldLine = l
 
     if has_key(b:syntastic_messages, l)
-        return syntastic#util#wideMsg(b:syntastic_messages[l])
+        call syntastic#util#wideMsg(b:syntastic_messages[l])
     else
         echo
     endif

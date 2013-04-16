@@ -101,10 +101,10 @@ endfunction
 " Place signs by all syntax errs in the buffer
 function! g:SyntasticSignsNotifier._signErrors(loclist)
     let loclist = a:loclist
-    if loclist.hasErrorsOrWarningsToDisplay()
+    if loclist.hasIssuesToDisplay()
 
         let buf = bufnr('')
-        let errors = loclist.quietWarnings() ? [] : loclist.warnings()
+        let errors = loclist.getQuietWarnings() ? [] : loclist.warnings()
         call extend(errors, loclist.errors())
         call filter(errors, 'v:val["bufnr"] == buf')
 
