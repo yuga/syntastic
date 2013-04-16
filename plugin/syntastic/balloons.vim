@@ -26,17 +26,39 @@ endfunction
 
 " Update the error balloons
 function! g:SyntasticBalloonsNotifier.refresh(loclist)
-    let b:syntastic_balloons = {}
-    if a:loclist.hasIssuesToDisplay()
+    let balloons = {}
+    if !a:loclist.isEmpty()
         for i in a:loclist.getFilteredLoclist()
-            if has_key(b:syntastic_balloons, i['lnum'])
-                let b:syntastic_balloons[i['lnum']] .= "\n" . i['text']
+            let b = i['bufnr']
+            let l = i['lnum']
+            if !has_key(balloons, b)
+                let balloons[b] = {}
+            endif
+
+            if has_key(balloons[b], l)
+                let balloons[b][l] .= "\n" . i['text']
             else
-                let b:syntastic_balloons[i['lnum']] = i['text']
+                let balloons[b][l] = i['text']
             endif
         endfor
+    endif
+
+    for buf in a:loclist.getBuffers()
+        call setbufvar(str2nr(buf), 'syntastic_balloons', has_key(balloons, buf) ? copy(balloons[buf]) : {})
+    endfor
+
+    if !a:loclist.isEmpty()
         set beval bexpr=SyntasticBalloonsExprNotifier()
     endif
+endfunction
+
+" Update the error balloons
+function! g:SyntasticBalloonsNotifier.reset(loclist)
+    for buf in a:loclist.getBuffers()
+        call setbufvar(str2nr(buf), 'syntastic_balloons', {})
+    endfor
+
+    set nobeval
 endfunction
 
 " Private functions {{{1
