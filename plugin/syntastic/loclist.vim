@@ -142,7 +142,7 @@ endfunction
 
 " returns loclist filtered by a given buffer
 " g:syntastic_quiet_warnings is not consulted
-function! g:SyntasticLoclist.loclistInBuffer(...)
+function! g:SyntasticLoclist.getLoclistInBuffer(...)
     let buf = a:0 ? str2nr(a:1) : bufnr("")
     if !has_key(self._cachedLoclist, buf)
         let self._cachedLoclist[buf] = self.filter({'bufnr': buf})
@@ -150,11 +150,18 @@ function! g:SyntasticLoclist.loclistInBuffer(...)
     return self._cachedLoclist[buf]
 endfunction
 
+" returns the errors or warnings to be displayed in a given buffer,
+" filtered by g:syntastic_quiet_warnings
+function! g:SyntasticLoclist.getIssuesToDisplay(...)
+    let buf = a:0 ? str2nr(a:1) : bufnr("")
+    return self._quietWarnings ? self.errors(buf) : self.getLoclistInBuffer(buf)
+endfunction
+
 " returns the number of issues in a given buffer
 " g:syntastic_quiet_warnings is not consulted
 function! g:SyntasticLoclist.length(...)
     let buf = a:0 ? str2nr(a:1) : bufnr("")
-    return len(self.loclistInBuffer(buf))
+    return len(self.getLoclistInBuffer(buf))
 endfunction
 
 " returns true if there are errors or warnings to be displayed
@@ -162,7 +169,7 @@ endfunction
 function! g:SyntasticLoclist.hasIssuesToDisplay(...)
     let buf = a:0 ? str2nr(a:1) : bufnr("")
     if !has_key(self._hasIssuesToDisplay, buf)
-        let self._hasIssuesToDisplay[buf] = len(self._quietWarnings ? self.errors(buf) : self.loclistInBuffer(buf))
+        let self._hasIssuesToDisplay[buf] = len(self.getIssuesToDisplay(buf))
     endif
     return self._hasIssuesToDisplay[buf]
 endfunction

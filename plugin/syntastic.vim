@@ -80,7 +80,9 @@ augroup END
 
 function! s:BufWinEnterHook()
     if empty(&bt)
-        call g:SyntasticAutoloclistNotifier.AutoToggle(g:SyntasticLoclist.current())
+        let loclist = g:SyntasticLoclist.current()
+        call g:SyntasticAutoloclistNotifier.AutoToggle(loclist)
+        call g:SyntasticHighlightingNotifier.refresh(loclist)
     endif
 endfunction
 
@@ -222,7 +224,7 @@ endfunction
 "return '' if no errors are cached for the buffer
 function! SyntasticStatuslineFlag()
     let loclist = g:SyntasticLoclist.current()
-    let issues = loclist.loclistInBuffer()
+    let issues = loclist.getLoclistInBuffer()
     let num_issues = len(issues)
     if num_issues
         let errors = loclist.errors()
