@@ -57,14 +57,16 @@ endfunction
 
 " Update the error signs
 function! g:SyntasticSignsNotifier.refresh(loclist)
-    let old_signs = copy(self._bufSignIds())
+    let old_signs = self._getSignsList(a:loclist)
     call self._signErrors(a:loclist)
-    call self._removeSigns(old_signs)
+    call self._removeSigns(a:loclist, old_signs)
+
     let s:first_sign_id = s:next_sign_id
 endfunction
 
 " Private methods {{{1
 
+" One time setup: define our own sign types and highlighting
 function! g:SyntasticSignsNotifier._setup()
     if has('signs')
         if !hlexists('SyntasticErrorSign')
@@ -98,55 +100,56 @@ function! g:SyntasticSignsNotifier._setup()
     endif
 endfunction
 
-" Place signs by all syntax errs in the buffer
+" Returns the current list of signs indexed by buffer
+function! g:SyntasticSignsNotifier._getSignsList(loclist)
+    let signs = {}
+
+    for buf in a:loclist.getBuffers()
+        let b = str2nr(buf)
+        let signs[b] = copy(getbufvar(b, 'syntastic_signs', []))
+    endfor
+
+    return signs
+endfunction
+
+" Place signs by all syntax errors in all buffers
 function! g:SyntasticSignsNotifier._signErrors(loclist)
-    let loclist = a:loclist
-    if loclist.hasIssuesToDisplay()
+    for buf in a:loclist.getBuffers()
+        let b = str2nr(buf)
+        let slist = getbufvar(b, 'syntastic_signs', [])
 
-        let buf = bufnr('')
-        let errors = loclist.getQuietWarnings() ? [] : loclist.warnings()
-        call extend(errors, loclist.errors())
-        call filter(errors, 'v:val["bufnr"] == buf')
+        " make sure the errors come after the warnings, so that errors mask
+        " the warnings on the same line, not the other way around
+        let issues = a:loclist.getQuietWarnings() ? [] : a:loclist.warnings(b)
+        call extend(issues, a:loclist.errors(b))
 
-        for i in errors
-            let sign_severity = i['type'] ==? 'w' ? 'Warning' : 'Error'
-            let sign_subtype = has_key(i,'subtype') ? i['subtype'] : ''
+        for i in issues
+            let sign_severity = i['type'] ==? 'W' ? 'Warning' : 'Error'
+            let sign_subtype = get(i, 'subtype', '')
             let sign_type = 'Syntastic' . sign_subtype . sign_severity
 
-            if !self._warningMasksError(i, errors)
-                exec "sign place " . s:next_sign_id . " line=" . i['lnum'] . " name=" . sign_type . " buffer=" . i['bufnr']
-                call add(self._bufSignIds(), s:next_sign_id)
-                let s:next_sign_id += 1
-            endif
+            exec "sign place " . s:next_sign_id . " line=" . i['lnum'] . " name=" . sign_type . " buffer=" . i['bufnr']
+            call add(slist, s:next_sign_id)
+            let s:next_sign_id += 1
         endfor
-    endif
-endfunction
 
-" Return true if the given error item is a warning that, if signed, would
-" potentially mask an error if displayed at the same time
-function! g:SyntasticSignsNotifier._warningMasksError(error, llist)
-    if a:error['type'] !=? 'w'
-        return 0
-    endif
-
-    let loclist = g:SyntasticLoclist.New(a:llist)
-    return len(loclist.filter({ 'type': "E", 'lnum': a:error['lnum'] })) > 0
-endfunction
-
-" Remove the signs with the given ids from this buffer
-function! g:SyntasticSignsNotifier._removeSigns(ids)
-    for i in a:ids
-        exec "sign unplace " . i
-        call remove(self._bufSignIds(), index(self._bufSignIds(), i))
+        call setbufvar(b, 'syntastic_signs', slist)
     endfor
 endfunction
 
-" Get all the ids of the SyntaxError signs in the buffer
-function! g:SyntasticSignsNotifier._bufSignIds()
-    if !exists("b:syntastic_sign_ids")
-        let b:syntastic_sign_ids = []
-    endif
-    return b:syntastic_sign_ids
+" Remove the signs with the given ids from all buffers
+function! g:SyntasticSignsNotifier._removeSigns(loclist, signs)
+    for buf in a:loclist.getBuffers()
+        let b = str2nr(buf)
+        let slist = getbufvar(b, 'syntastic_signs', [])
+
+        for i in reverse(copy(a:signs[b]))
+            exec "sign unplace " . i
+            call remove(slist, index(slist, i))
+        endfor
+
+        call setbufvar(b, 'syntastic_signs', slist)
+    endfor
 endfunction
 
 " vim: set sw=4 sts=4 et fdm=marker:
