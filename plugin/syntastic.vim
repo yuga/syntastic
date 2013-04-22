@@ -87,7 +87,7 @@ function! s:BufWinEnterHook()
 endfunction
 
 function! s:BufEnterHook()
-    " TODO: at this point there is no b:syntastic_loclist
+    " at this point there is no b:syntastic_loclist
     let loclist = filter(getloclist(0), 'v:val["valid"] == 1')
     let buffers = syntastic#util#unique(map( loclist, 'v:val["bufnr"]' ))
     if &bt=='quickfix' && !empty(loclist) && empty(filter( buffers, 'syntastic#util#bufIsActive(v:val)' ))
@@ -98,6 +98,14 @@ endfunction
 "refresh and redraw all the error info for this buf when saving or reading
 function! s:UpdateErrors(auto_invoked, ...)
     if s:SkipFile()
+        return
+    endif
+
+    " if we're auto-checking a header file (presumably because
+    " g:syntastic_check_on_open is set), just refresh the notifiers
+    let loclist = exists('b:syntastic_loclist') ? b:syntastic_loclist : {}
+    if a:auto_invoked && !empty(loclist) && loclist.getOwner() != bufnr('')
+        call s:notifiers.refresh(loclist)
         return
     endif
 
