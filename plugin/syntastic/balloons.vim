@@ -28,7 +28,7 @@ endfunction
 function! g:SyntasticBalloonsNotifier.refresh(loclist)
     let balloons = {}
     if !a:loclist.isEmpty()
-        for i in a:loclist.getFilteredLoclist()
+        for i in a:loclist.filterByQuietFlagCached()
             let b = i['bufnr']
             let l = i['lnum']
             if !has_key(balloons, b)

@@ -121,7 +121,7 @@ function! s:UpdateErrors(auto_invoked, ...)
     call s:notifiers.refresh(loclist)
 
     if (g:syntastic_always_populate_loc_list || g:syntastic_auto_jump) && !loclist.isEmpty()
-        call setloclist(0, loclist.getFilteredLoclist())
+        call setloclist(0, loclist.filterByQuietFlagCached())
         if g:syntastic_auto_jump
             silent! lrewind
         endif
@@ -232,7 +232,7 @@ endfunction
 "return '' if no errors are cached for the buffer
 function! SyntasticStatuslineFlag()
     let loclist = g:SyntasticLoclist.current()
-    let issues = loclist.getLoclistInBuffer()
+    let issues = loclist.filterByBufferCached()
     let num_issues = len(issues)
     if num_issues
         let errors = loclist.errors()

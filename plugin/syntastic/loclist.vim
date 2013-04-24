@@ -39,13 +39,22 @@ function! g:SyntasticLoclist.extend(other)
     call self._resetCaches()
 endfunction
 
-" returns loclist filtered according to g:syntastic_quiet_warnings
-" caches results
-function! g:SyntasticLoclist.getFilteredLoclist()
-    if !exists("self._cachedFiltered")
-        let self._cachedFiltered = copy(self._quietWarnings ? self.filter({'type': 'E'}) : self._rawLoclist)
+" returns true if there are issues to display in any buffer
+" filtered by g:syntastic_quiet_warnings
+function! g:SyntasticLoclist.isEmpty()
+    return empty(self.filterByQuietFlagCached())
+endfunction
+
+" display the cached errors for this buf in the location list
+function! g:SyntasticLoclist.show()
+    if self.hasIssuesToDisplay()
+            call setloclist(0, self.filterByQuietFlagCached())
+        let num = winnr()
+        exec "lopen " . g:syntastic_loc_list_height
+        if num != winnr()
+            wincmd p
+        endif
     endif
-    return self._cachedFiltered
 endfunction
 
 " returns the main buffer from which loclist was created
@@ -61,7 +70,7 @@ endfunction
 " returns the list of buffers referenced by loclist
 " main buffer is included too, even if it doesn't have errors
 function! g:SyntasticLoclist.getBuffers()
-    let llist = copy(self.getFilteredLoclist())
+    let llist = copy(self.filterByQuietFlagCached())
     return syntastic#util#unique(map( llist, 'v:val["bufnr"]' ) + [self.getOwner()])
 endfunction
 
@@ -79,12 +88,6 @@ function! g:SyntasticLoclist.resetBuffers()
     for buf in self.getBuffers()
         call setbufvar(str2nr(buf), 'syntastic_loclist', {})
     endfor
-endfunction
-
-" returns true if there are issues to display in any buffer
-" filtered by g:syntastic_quiet_warnings
-function! g:SyntasticLoclist.isEmpty()
-    return empty(self.getFilteredLoclist())
 endfunction
 
 " filter the list and return new native loclist e.g.
@@ -114,16 +117,13 @@ function! g:SyntasticLoclist.filter(filters)
     return rv
 endfunction
 
-" display the cached errors for this buf in the location list
-function! g:SyntasticLoclist.show()
-    if self.hasIssuesToDisplay()
-        call setloclist(0, self.getFilteredLoclist())
-        let num = winnr()
-        exec "lopen " . g:syntastic_loc_list_height
-        if num != winnr()
-            wincmd p
-        endif
+" returns loclist filtered according to g:syntastic_quiet_warnings
+" caches results
+function! g:SyntasticLoclist.filterByQuietFlagCached()
+    if !exists("self._cachedFiltered")
+        let self._cachedFiltered = copy(self._quietWarnings ? self.filter({'type': 'E'}) : self._rawLoclist)
     endif
+    return self._cachedFiltered
 endfunction
 
 " Public methods localized to a buffer {{{1
@@ -140,28 +140,11 @@ function! g:SyntasticLoclist.current(...)
     return llist
 endfunction
 
-" returns loclist filtered by a given buffer
-" g:syntastic_quiet_warnings is not consulted
-function! g:SyntasticLoclist.getLoclistInBuffer(...)
-    let buf = a:0 ? str2nr(a:1) : bufnr("")
-    if !has_key(self._cachedLoclist, buf)
-        let self._cachedLoclist[buf] = self.filter({'bufnr': buf})
-    endif
-    return self._cachedLoclist[buf]
-endfunction
-
 " returns the errors or warnings to be displayed in a given buffer,
 " filtered by g:syntastic_quiet_warnings
 function! g:SyntasticLoclist.getIssuesToDisplay(...)
     let buf = a:0 ? str2nr(a:1) : bufnr("")
-    return self._quietWarnings ? self.errors(buf) : self.getLoclistInBuffer(buf)
-endfunction
-
-" returns the number of issues in a given buffer
-" g:syntastic_quiet_warnings is not consulted
-function! g:SyntasticLoclist.length(...)
-    let buf = a:0 ? str2nr(a:1) : bufnr("")
-    return len(self.getLoclistInBuffer(buf))
+    return self._quietWarnings ? self.errors(buf) : self.filterByBufferCached(buf)
 endfunction
 
 " returns true if there are errors or warnings to be displayed
@@ -216,6 +199,16 @@ function! g:SyntasticLoclist.messages(...)
     endif
 
     return self._cachedMessages[buf]
+endfunction
+
+" returns loclist filtered by a given buffer
+" g:syntastic_quiet_warnings is not consulted
+function! g:SyntasticLoclist.filterByBufferCached(...)
+    let buf = a:0 ? str2nr(a:1) : bufnr("")
+    if !has_key(self._cachedLoclist, buf)
+        let self._cachedLoclist[buf] = self.filter({'bufnr': buf})
+    endif
+    return self._cachedLoclist[buf]
 endfunction
 
 " Private methods {{{1
