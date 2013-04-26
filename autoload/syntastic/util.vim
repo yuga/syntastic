@@ -119,7 +119,11 @@ endfunction
 
 " Used to sort error lists
 function! syntastic#util#compareErrorItems(a, b)
-    if a:a['lnum'] != a:b['lnum']
+    if a:a['bufnr'] != a:b['bufnr']
+        " this is not strictly correct, but it's still better
+        " than sorting by line numbers across unrelated buffers
+        return a:a['bufnr'] - a:b['bufnr']
+    elseif a:a['lnum'] != a:b['lnum']
         return a:a['lnum'] - a:b['lnum']
     elseif a:a['type'] !=? a:b['type']
         " errors take precedence over warnings
