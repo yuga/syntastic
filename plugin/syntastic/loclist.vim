@@ -229,11 +229,7 @@ endfunction
 
 " hides the error window
 function! g:SyntasticLoclistHide()
-    if len(filter( range(1, bufnr('$')), 'syntastic#util#bufIsActive(v:val)' )) == 1
-        quit
-    else
-        lclose
-    endif
+    silent! lclose
 endfunction
 
 " vim: set sw=4 sts=4 et fdm=marker:
