@@ -128,7 +128,7 @@ function! s:UpdateErrors(auto_invoked, ...)
     call s:notifiers.refresh(loclist)
 
     if (g:syntastic_always_populate_loc_list || g:syntastic_auto_jump) && !loclist.isEmpty()
-        call setloclist(0, loclist.filterByQuietFlagCached())
+        call setloclist(0, loclist.filterByQuietFlagCached(), 'r')
         if g:syntastic_auto_jump
             silent! lrewind
         endif
@@ -321,7 +321,9 @@ function! SyntasticMake(options)
     silent lmake!
     let errors = getloclist(0)
 
-    call setloclist(0, old_loclist)
+    " TODO: this isn't really needed, we can access old_loclist with :lolder
+    " 'r' here means setloclist() overwrites the loclist created by :lmake
+    call setloclist(0, old_loclist, 'r')
     let &l:makeprg = old_makeprg
     let &l:errorformat = old_errorformat
     let &shellpipe=old_shellpipe
