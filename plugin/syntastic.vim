@@ -148,6 +148,9 @@ function! s:CacheErrors(...)
     let newLoclist = g:SyntasticLoclist.New([])
 
     if !s:SkipFile()
+        let old_shellslash = &shellslash
+        let &shellslash = 0
+
         for ft in s:CurrentFiletypes()
 
             if a:0
@@ -172,6 +175,8 @@ function! s:CacheErrors(...)
                 endif
             endfor
         endfor
+
+        let &shellslash = old_shellslash
     endif
 
     let b:syntastic_loclist = newLoclist
