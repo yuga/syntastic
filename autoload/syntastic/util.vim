@@ -117,29 +117,13 @@ function! syntastic#util#bufIsActive(buffer)
     return 0
 endfunction
 
-" Used to sort error lists
-function! syntastic#util#compareErrorItems(a, b)
-    if a:a['bufnr'] != a:b['bufnr']
-        " this is not strictly correct, but it's still better
-        " than sorting by line numbers across unrelated buffers
-        return a:a['bufnr'] - a:b['bufnr']
-    elseif a:a['lnum'] != a:b['lnum']
-        return a:a['lnum'] - a:b['lnum']
-    elseif a:a['type'] !=? a:b['type']
-        " errors take precedence over warnings
-        return a:a['type'] ==? 'e' ? -1 : 1
-    else
-        return a:a['col'] - a:b['col']
-    endif
-endfunction
-
-" List of buffers referenced by the location list
+" Returns unique elements in a list
 function! syntastic#util#unique(list)
     let seen = {}
     for e in a:list
         let seen[e] = 1
     endfor
-    return keys(seen)
+    return copy(keys(seen))
 endfunction
 
 function! syntastic#util#debug(msg)
