@@ -60,7 +60,6 @@ function! g:SyntasticSignsNotifier.refresh(loclist)
     let old_signs = self._getSignsList(a:loclist)
     call self._signErrors(a:loclist)
     call self._removeSigns(a:loclist, old_signs)
-
     let s:first_sign_id = s:next_sign_id
 endfunction
 
@@ -100,28 +99,17 @@ function! g:SyntasticSignsNotifier._setup()
     endif
 endfunction
 
-" Returns the current list of signs indexed by buffer
-function! g:SyntasticSignsNotifier._getSignsList(loclist)
-    let signs = {}
-
-    for buf in a:loclist.getBuffers()
-        let b = str2nr(buf)
-        let signs[b] = copy(getbufvar(b, 'syntastic_signs', []))
-    endfor
-
-    return signs
-endfunction
-
 " Place signs by all syntax errors in all buffers
 function! g:SyntasticSignsNotifier._signErrors(loclist)
-    for buf in a:loclist.getBuffers()
+    let loclist = a:loclist
+    for buf in loclist.getBuffers()
         let b = str2nr(buf)
         let slist = getbufvar(b, 'syntastic_signs', [])
 
         " make sure the errors come after the warnings, so that errors mask
         " the warnings on the same line, not the other way around
-        let issues = a:loclist.getQuietWarnings() ? [] : a:loclist.warnings(b)
-        call extend(issues, a:loclist.errors(b))
+        let issues = loclist.getQuietWarnings() ? [] : loclist.warnings(b)
+        call extend(issues, loclist.errors(b))
 
         for i in issues
             let sign_severity = i['type'] ==? 'W' ? 'Warning' : 'Error'
@@ -150,6 +138,18 @@ function! g:SyntasticSignsNotifier._removeSigns(loclist, signs)
 
         call setbufvar(b, 'syntastic_signs', slist)
     endfor
+endfunction
+
+" Returns the current list of signs indexed by buffer
+function! g:SyntasticSignsNotifier._getSignsList(loclist)
+    let signs = {}
+
+    for buf in a:loclist.getBuffers()
+        let b = str2nr(buf)
+        let signs[b] = copy(getbufvar(b, 'syntastic_signs', []))
+    endfor
+
+    return signs
 endfunction
 
 " vim: set sw=4 sts=4 et fdm=marker:

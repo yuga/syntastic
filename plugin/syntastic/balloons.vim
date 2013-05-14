@@ -52,7 +52,7 @@ function! g:SyntasticBalloonsNotifier.refresh(loclist)
     endif
 endfunction
 
-" Update the error balloons
+" Reset the error balloons
 function! g:SyntasticBalloonsNotifier.reset(loclist)
     for buf in a:loclist.getBuffers()
         call setbufvar(str2nr(buf), 'syntastic_balloons', {})
