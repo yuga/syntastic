@@ -141,9 +141,9 @@ function! s:UpdateErrors(auto_invoked, ...)
     let loclist = g:SyntasticLoclist.current()
     call s:notifiers.refresh(loclist)
 
-    if (g:syntastic_always_populate_loc_list || g:syntastic_auto_jump) && !loclist.isEmpty()
+    if g:syntastic_always_populate_loc_list || g:syntastic_auto_jump
         call setloclist(0, loclist.filterByQuietFlagCached())
-        if g:syntastic_auto_jump
+        if g:syntastic_auto_jump && !loclist.isEmpty()
             silent! lrewind
         endif
     endif
