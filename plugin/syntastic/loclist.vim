@@ -25,6 +25,8 @@ function! g:SyntasticLoclist.New(rawLoclist)
     let newObj._owner = bufnr("")
     call newObj._resetCaches()
 
+    let newObj._name = ''
+
     return newObj
 endfunction
 
@@ -54,7 +56,28 @@ function! g:SyntasticLoclist.show()
         if num != winnr()
             wincmd p
         endif
+
+        " try to find the loclist window and set w:quickfix_title
+        for buf in tabpagebuflist()
+            if buflisted(buf) && bufloaded(buf) && getbufvar(buf, '&buftype') ==# 'quickfix'
+                let win = bufwinnr(buf)
+                let title = getwinvar(win, 'quickfix_title', '')
+                if title ==# ':setloclist()' || strpart(title, 0, 16) ==# ':SyntasticCheck '
+                    call setwinvar(win, 'quickfix_title', ':SyntasticCheck ' . self._name)
+                endif
+            endif
+        endfor
     endif
+endfunction
+
+" returns the name of the checker that created this loclist
+function! g:SyntasticLoclist.getName()
+    return len(self._name)
+endfunction
+
+" sets the name of the checker that created this loclist
+function! g:SyntasticLoclist.setName(name)
+    let self._name = a:name
 endfunction
 
 " returns the main buffer from which loclist was created
