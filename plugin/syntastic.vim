@@ -460,6 +460,11 @@ function! SyntasticMake(options) " {{{2
         call s:addToErrors(errors, { 'subtype': a:options['subtype'] })
     endif
 
+    if has_key(a:options, 'postfunc')
+        let errors = call(a:options['postfunc'], [errors])
+        call syntastic#log#debug(g:SyntasticDebugLoclist, "postfunc:", errors)
+    endif
+
     if has_key(a:options, 'Postprocess') && !empty(a:options['Postprocess'])
         for rule in a:options['Postprocess']
             let errors = call(rule, [errors])

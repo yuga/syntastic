@@ -30,7 +30,7 @@ endfunction
 
 function! SyntaxCheckers_haskell_ghc_mod_GetLocList() dict
     let makeprg = self.makeprgBuild({
-        \ 'exe': self.getExecEscaped() . ' check' . (s:ghc_mod_new ? ' --boundary=""' : '') })
+        \ 'exe': self.getExecEscaped() . ' check' . (s:ghc_mod_new ? " --boundary='" . nr2char(11) . "'" : ' ') })
 
     let errorformat =
         \ '%-G%\s%#,' .
@@ -45,8 +45,26 @@ function! SyntaxCheckers_haskell_ghc_mod_GetLocList() dict
     return SyntasticMake({
         \ 'makeprg': makeprg,
         \ 'errorformat': errorformat,
+        \ 'postfunc': 'SyntaxCheckers_haskell_ghc_mod_Popstprocess',
         \ 'postprocess': ['compressWhitespace'],
         \ 'returns': [0] })
+endfunction
+
+function! SyntaxCheckers_haskell_ghc_mod_Popstprocess(errors)
+    let out = []
+    "echomsg "in : " . string(a:errors)
+    for e in a:errors
+        if has_key(e, 'text') && !empty(e['text'])
+            let lines = split(e['text'], nr2char(11))
+            let e['text'] = lines[0]
+            call add(out, e)
+            for l in lines[1:]
+               call add(out, {'text': l, 'valid':1, 'type': 'T', 'bufnr': '', 'lnum': '' })
+            endfor
+        endif
+    endfor
+    "echomsg "out: " . string(out)
+    return out
 endfunction
 
 function! s:GhcModNew(exe)
