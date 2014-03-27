@@ -434,7 +434,11 @@ function! SyntasticMake(options) " {{{2
 
     let $LC_MESSAGES = 'C'
     let $LC_ALL = ''
-    let err_lines = split(system(a:options['makeprg']), "\n", 1)
+    if has_key(a:options, 'makefunc')
+        let err_lines = call(a:options['makefunc'], [a:options['makeprg']])
+    else
+        let err_lines = split(system(a:options['makeprg']), "\n", 1)
+    endif
     let $LC_ALL = old_lc_all
     let $LC_MESSAGES = old_lc_messages
 

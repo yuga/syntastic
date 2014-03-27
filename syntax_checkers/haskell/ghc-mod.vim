@@ -14,8 +14,10 @@ if exists('g:loaded_syntastic_haskell_ghc_mod_checker')
     finish
 endif
 let g:loaded_syntastic_haskell_ghc_mod_checker = 1
+let g:syntastic_haskell_ghc_modi_procs = {}
 
 let s:ghc_mod_new = -1
+let s:ghc_modi_cmd = 'ghc-modi'
 
 let s:save_cpo = &cpo
 set cpo&vim
@@ -25,13 +27,19 @@ function! SyntaxCheckers_haskell_ghc_mod_IsAvailable() dict
     " or a ghc-mod version that has the --boundary option.
     let exe = self.getExec()
     let s:ghc_mod_new = executable(exe) ? s:GhcModNew(exe) : -1
+    if !exists('s:exists_vimproc')
+        try
+            call vimproc#version()
+            let s:exists_vimproc = 1
+            "echomsg 'vimproc standby'
+        catch
+            let s:exists_vimproc = 0
+        endtry
+    endif
     return (s:ghc_mod_new >= 0) && (v:version >= 704 || s:ghc_mod_new)
 endfunction
 
 function! SyntaxCheckers_haskell_ghc_mod_GetLocList() dict
-    let makeprg = self.makeprgBuild({
-        \ 'exe': self.getExecEscaped() . ' check' . (s:ghc_mod_new ? " --boundary='" . nr2char(11) . "'" : ' ') })
-
     let errorformat =
         \ '%-G%\s%#,' .
         \ '%f:%l:%c:%trror: %m,' .
@@ -42,12 +50,64 @@ function! SyntaxCheckers_haskell_ghc_mod_GetLocList() dict
         \ '%E%f:%l:%c:,' .
         \ '%Z%m'
 
-    return SyntasticMake({
-        \ 'makeprg': makeprg,
-        \ 'errorformat': errorformat,
-        \ 'postfunc': 'SyntaxCheckers_haskell_ghc_mod_Popstprocess',
-        \ 'postprocess': ['compressWhitespace'],
-        \ 'returns': [0] })
+    if executable(s:ghc_modi_cmd) && s:exists_vimproc
+        "echomsg 'use ghc-modi'
+        let makeprg = self.makeprgBuild({ 'exe': '' })
+        "echomsg 'hsfile: ' . makeprg
+
+        return SyntasticMake({
+            \ 'makefunc': 'SyntaxCheckers_haskell_ghc_modi',
+            \ 'makeprg': makeprg,
+            \ 'errorformat': errorformat,
+            \ 'postfunc': 'SyntaxCheckers_haskell_ghc_mod_Popstprocess',
+            \ 'postprocess': ['compressWhitespace']})
+    else
+        "echomsg 'use ghc-mod'
+        let makeprg = self.makeprgBuild({
+            \ 'exe': self.getExecEscaped() . ' check' . (s:ghc_mod_new ? " --boundary='" . nr2char(11) . "'" : ' ') })
+
+        return SyntasticMake({
+            \ 'makeprg': makeprg,
+            \ 'errorformat': errorformat,
+            \ 'postfunc': 'SyntaxCheckers_haskell_ghc_mod_Popstprocess',
+            \ 'postprocess': ['compressWhitespace'],
+            \ 'returns': [0] })
+    endif
+
+endfunction
+
+function! SyntaxCheckers_haskell_ghc_modi(hsfile)
+    let cwd = getcwd()
+    "echomsg "cwd: " . string(cwd)
+
+    if has_key(g:syntastic_haskell_ghc_modi_procs, cwd)
+        let proc = g:syntastic_haskell_ghc_modi_procs[cwd]
+    else
+        let cmds = [s:ghc_modi_cmd, "-b", nr2char(11)]
+        let proc = vimproc#popen2(cmds)
+        let g:syntastic_haskell_ghc_modi_procs[cwd] = proc
+    endif
+
+    "echomsg "proc: " . string(proc)
+    call proc.stdin.write('check ' . a:hsfile . "\n")
+    let l:res = proc.stdout.read_lines(100, 10000)
+    let l:out = []
+
+    while l:res[-1] != 'OK' && l:res[-1] != 'NG' && !proc.stdout.eof
+        let l:out = proc.stdout.read_lines()
+        let l:res += l:out
+    endwhile
+
+    let l:syntastic_one_lines = []
+    for line in l:res
+        if line != 'OK' && line != 'NG'
+            let l:syntastic_one_lines += [line]
+        endif
+    endfor
+
+    "echomsg 'return lines: ' . string(l:syntastic_one_lines)
+
+    return l:syntastic_one_lines
 endfunction
 
 function! SyntaxCheckers_haskell_ghc_mod_Popstprocess(errors)
