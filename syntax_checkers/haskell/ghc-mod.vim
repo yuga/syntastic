@@ -14,7 +14,7 @@ if exists('g:loaded_syntastic_haskell_ghc_mod_checker')
     finish
 endif
 let g:loaded_syntastic_haskell_ghc_mod_checker = 1
-let g:syntastic_haskell_ghc_modi_procs = {}
+let g:syntastic_haskell_ghc_modi_procs = []
 
 let s:ghc_mod_new = -1
 let s:ghc_modi_cmd = 'ghc-modi'
@@ -52,12 +52,11 @@ function! SyntaxCheckers_haskell_ghc_mod_GetLocList() dict
 
     if executable(s:ghc_modi_cmd) && s:exists_vimproc
         "echomsg 'use ghc-modi'
-        let makeprg = self.makeprgBuild({ 'exe': '' })
+        let hsfile = self.makeprgBuild({ 'exe': '' })
         "echomsg 'hsfile: ' . makeprg
 
         return SyntasticMake({
-            \ 'makefunc': 'SyntaxCheckers_haskell_ghc_modi',
-            \ 'makeprg': makeprg,
+            \ 'err_lines': GhcModiMakeErrLines(hsfile),
             \ 'errorformat': errorformat,
             \ 'postfunc': 'SyntaxCheckers_haskell_ghc_mod_Popstprocess',
             \ 'postprocess': ['compressWhitespace']})
@@ -76,25 +75,53 @@ function! SyntaxCheckers_haskell_ghc_mod_GetLocList() dict
 
 endfunction
 
-function! SyntaxCheckers_haskell_ghc_modi(hsfile)
+function! GhcModiMakeErrLines(hsfile)
     let cwd = getcwd()
     "echomsg "cwd: " . string(cwd)
 
-    if has_key(g:syntastic_haskell_ghc_modi_procs, cwd)
-        let proc = g:syntastic_haskell_ghc_modi_procs[cwd]
-    else
+    "for p in g:syntastic_haskell_ghc_modi_procs
+    "    echomsg '#1 ' . 'cwd=' . p.cwd . ', last_access' . string(p.last_access)
+    "endfor
+
+    for i in range(len(g:syntastic_haskell_ghc_modi_procs) - 1, 0, -1)
+        "echomsg 'i=' . string(i)
+        let l:proc_tmp = g:syntastic_haskell_ghc_modi_procs[i]
+        if l:proc_tmp.cwd == cwd
+            let l:proc = l:proc_tmp
+            let l:proc.last_access = localtime() "for debug
+            call remove(g:syntastic_haskell_ghc_modi_procs, i) 
+            break
+        endif
+    endfor
+
+    if !exists('l:proc')
         let cmds = [s:ghc_modi_cmd, "-b", nr2char(11)]
-        let proc = vimproc#popen2(cmds)
-        let g:syntastic_haskell_ghc_modi_procs[cwd] = proc
+        let l:proc = vimproc#popen2(cmds)
+        call extend(l:proc, { 'cwd': cwd, 'last_access': localtime() }) "for debug
     endif
 
-    "echomsg "proc: " . string(proc)
-    call proc.stdin.write('check ' . a:hsfile . "\n")
-    let l:res = proc.stdout.read_lines(100, 10000)
+    call add(g:syntastic_haskell_ghc_modi_procs, l:proc)
+
+    if len(g:syntastic_haskell_ghc_modi_procs) > 3
+        let l:proc_old = g:syntastic_haskell_ghc_modi_procs[0]
+        call remove(g:syntastic_haskell_ghc_modi_procs, 0)
+        call l:proc_old.stdin.write("bye\n") "dummy message
+        call l:proc_old.stdin.f_close()
+        call l:proc_old.waitpid()
+        echoms "discard the oldest ghc-modi process for " . l:proc_old.cwd
+    endif
+
+    "for p in g:syntastic_haskell_ghc_modi_procs
+    "    echomsg '#2 ' . 'cwd=' . p.cwd . ', last_access' . string(p.last_access)
+    "endfor
+
+    "echomsg "proc: " . string(l:proc)
+    call l:proc.stdin.write('check ' . a:hsfile . "\n")
+    let l:res = l:proc.stdout.read_lines(100, 10000)
     let l:out = []
 
-    while l:res[-1] != 'OK' && l:res[-1] != 'NG' && !proc.stdout.eof
-        let l:out = proc.stdout.read_lines()
+    while l:res[-1] != 'OK' && l:res[-1] != 'NG' && !l:proc.stdout.eof
+        let l:out = l:proc.stdout.read_lines()
         let l:res += l:out
     endwhile
 
