@@ -120,7 +120,7 @@ function! GhcModiMakeErrLines(hsfile)
     let l:res = l:proc.stdout.read_lines(100, 10000)
     let l:out = []
 
-    while l:res[-1] != 'OK' && l:res[-1] != 'NG' && !l:proc.stdout.eof
+    while empty(l:res) && l:res[-1] != 'OK' && l:res[-1] != 'NG' && !l:proc.stdout.eof
         let l:out = l:proc.stdout.read_lines()
         let l:res += l:out
     endwhile
