@@ -108,7 +108,7 @@ function! GhcModiMakeErrLines(hsfile)
         call l:proc_old.stdin.write("bye\n") "dummy message
         call l:proc_old.stdin.f_close()
         call l:proc_old.waitpid()
-        echoms "discard the oldest ghc-modi process for " . l:proc_old.cwd
+        "echoms "discard the oldest ghc-modi process for " . l:proc_old.cwd
     endif
 
     "for p in g:syntastic_haskell_ghc_modi_procs
@@ -120,7 +120,7 @@ function! GhcModiMakeErrLines(hsfile)
     let l:res = l:proc.stdout.read_lines(100, 10000)
     let l:out = []
 
-    while empty(l:res) && l:res[-1] != 'OK' && l:res[-1] != 'NG' && !l:proc.stdout.eof
+    while (empty(l:res) || (l:res[-1] != 'OK' && l:res[-1] != 'NG')) && !l:proc.stdout.eof
         let l:out = l:proc.stdout.read_lines()
         let l:res += l:out
     endwhile
