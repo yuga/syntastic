@@ -59,8 +59,7 @@ function! SyntaxCheckers_haskell_ghc_mod_GetLocList() dict
         return SyntasticMake({
             \ 'err_lines': GhcModiMakeErrLines(hsfile),
             \ 'errorformat': errorformat,
-            \ 'postfunc': 'SyntaxCheckers_haskell_ghc_mod_Popstprocess',
-            \ 'postprocess': ['compressWhitespace']})
+            \ 'postfunc': 'SyntaxCheckers_haskell_ghc_mod_Popstprocess'})
     else
         "echomsg 'use ghc-mod'
         let makeprg = self.makeprgBuild({
@@ -102,7 +101,7 @@ function! GhcModiMakeErrLines(hsfile)
         endif
 
         let cmds = [s:ghc_modi_cmd, "-b", nr2char(11)]
-        let l:proc = vimproc#popen2(cmds)
+        let l:proc = vimproc#popen3(cmds)
         call extend(l:proc, { 'cwd': cwd, 'last_access': localtime() })
     endif
 
@@ -110,6 +109,10 @@ function! GhcModiMakeErrLines(hsfile)
     call l:proc.stdin.write('check ' . a:hsfile . "\n")
     let l:res = l:proc.stdout.read_lines(100, 10000)
     let l:out = []
+
+    if l:proc.stdout.eof
+        let l:res = split(vimproc#system(s:ghc_modi_cmd), "\n", 1)
+    endif
 
     while (empty(l:res) || (l:res[-1] != 'OK' && l:res[-1] != 'NG')) && !l:proc.stdout.eof
         let l:out = l:proc.stdout.read_lines()
@@ -133,6 +136,14 @@ function! GhcModiMakeErrLines(hsfile)
     return l:syntastic_one_lines
 endfunction
 
+function! s:GhcModiClear()
+    for p in s:syntastic_haskell_ghc_modi_procs
+        call p.stdout.close()
+        call p.waitpid()
+    endfor
+    let s:syntastic_haskell_ghc_modi_procs = []
+endfunction
+
 function! SyntaxCheckers_haskell_ghc_mod_Popstprocess(errors)
     let out = []
     "echomsg "in : " . string(a:errors)
@@ -141,7 +152,7 @@ function! SyntaxCheckers_haskell_ghc_mod_Popstprocess(errors)
             let lines = split(e['text'], nr2char(11))
             let e['text'] = lines[0]
             call add(out, e)
-            for l in lines[1:]
+            for l in lines
                call add(out, {'text': l, 'valid':1, 'type': 'T', 'bufnr': '', 'lnum': '' })
             endfor
         endif
@@ -169,5 +180,7 @@ call g:SyntasticRegistry.CreateAndRegisterChecker({
 
 let &cpo = s:save_cpo
 unlet s:save_cpo
+
+command GhcModiClear call s:GhcModiClear()
 
 " vim: set et sts=4 sw=4:
