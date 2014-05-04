@@ -13,15 +13,29 @@
 if exists('g:loaded_syntastic_haskell_ghc_mod_checker')
     finish
 endif
+
+if !exists('g:syntastic_haskell_ghc_mod_config_file_enabled')
+    let g:syntastic_haskell_ghc_mod_config_file_enabled = 0
+endif
+
+if !exists('g:syntastic_haskell_ghc_mod_config_file')
+    let g:syntastic_haskell_ghc_mod_config_file = '.syntastic_ghc_mod_config'
+endif
+
 let g:loaded_syntastic_haskell_ghc_mod_checker = 1
 let g:ghc_modi_maxnum = 3
 
 let s:ghc_mod_new = -1
-let s:ghc_modi_cmd = 'ghc-modi'
 let s:syntastic_haskell_ghc_modi_procs = []
-
 let s:save_cpo = &cpo
+
 set cpo&vim
+
+function! s:LoadConfigFile()
+    if filereadable(expand(g:syntastic_haskell_ghc_mod_config_file))
+        exe 'source ' . fnameescape(expand(g:syntastic_haskell_ghc_mod_config_file))
+    endif
+endfunction
 
 function! SyntaxCheckers_haskell_ghc_mod_IsAvailable() dict
     " We need either a Vim version that can handle NULs in system() output,
@@ -51,13 +65,27 @@ function! SyntaxCheckers_haskell_ghc_mod_GetLocList() dict
         \ '%E%f:%l:%c:,' .
         \ '%Z%m'
 
-    if executable(s:ghc_modi_cmd) && s:exists_vimproc
+    let l:options = { 'ghc_mod_cmd': 'ghc-mod', 'ghc_modi_cmd': 'ghc-modi' }
+
+    if g:syntastic_haskell_ghc_mod_config_file_enabled
+        call s:LoadConfigFile()
+        let l:options = {}
+        if exists('g:ghc_mod_cmd')
+            let l:options['ghc_mod_cmd'] = g:ghc_mod_cmd
+        endif
+        if exists('g:ghc_modi_cmd')
+            let l:options['ghc_modi_cmd'] = g:ghc_modi_cmd
+        endif
+
+    endif
+
+    if executable(l:options['ghc_modi_cmd']) && s:exists_vimproc
         "echomsg 'use ghc-modi'
         let hsfile = self.makeprgBuild({ 'exe': '' })
         "echomsg 'hsfile: ' . makeprg
 
         return SyntasticMake({
-            \ 'err_lines': GhcModiMakeErrLines(hsfile),
+            \ 'err_lines': GhcModiMakeErrLines(hsfile, l:options),
             \ 'errorformat': errorformat,
             \ 'postfunc': 'SyntaxCheckers_haskell_ghc_mod_Popstprocess'})
     else
@@ -75,7 +103,7 @@ function! SyntaxCheckers_haskell_ghc_mod_GetLocList() dict
 
 endfunction
 
-function! GhcModiMakeErrLines(hsfile)
+function! GhcModiMakeErrLines(hsfile, options)
     let cwd = getcwd()
 
     let l:num_procs = len(s:syntastic_haskell_ghc_modi_procs)
@@ -99,8 +127,7 @@ function! GhcModiMakeErrLines(hsfile)
             call l:proc_old.stdin.close()
             call l:proc_old.waitpid()
         endif
-
-        let cmds = [s:ghc_modi_cmd, "-b", nr2char(11)]
+        let cmds = [a:options['ghc_modi_cmd'], "-b", nr2char(11)]
         let l:proc = vimproc#popen3(cmds)
         call extend(l:proc, { 'cwd': cwd, 'last_access': localtime() })
     endif
@@ -111,7 +138,7 @@ function! GhcModiMakeErrLines(hsfile)
     let l:out = []
 
     if l:proc.stdout.eof
-        let l:res = split(vimproc#system(s:ghc_modi_cmd), "\n", 1)
+        let l:res = split(vimproc#system(a:options['ghc_modi_cmd']), "\n", 1)
     endif
 
     while (empty(l:res) || (l:res[-1] != 'OK' && l:res[-1] != 'NG')) && !l:proc.stdout.eof
