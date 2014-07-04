@@ -181,6 +181,7 @@ command! SyntasticSetLoclist call g:SyntasticLoclist.current().setloclist()
 augroup syntastic
     autocmd BufReadPost * call s:BufReadPostHook()
     autocmd BufWritePost * call s:BufWritePostHook()
+    autocmd BufWinEnter * call s:BufWinEnterHook()
     autocmd BufEnter * call s:BufEnterHook()
 augroup END
 
@@ -205,12 +206,21 @@ function! s:BufWritePostHook() " {{{2
     call s:UpdateErrors(1)
 endfunction " }}}2
 
+function! s:BufWinEnterHook() " {{{2
+    call syntastic#log#debug(g:SyntasticDebugAutocommands,
+        \ 'autocmd: BufWinEnter, buffer ' . bufnr("") . ' = ' . string(bufname(str2nr(bufnr("")))) .
+        \ ', &buftype = ' . string(&buftype))
+    if &buftype == ''
+        call s:notifiers.refresh(g:SyntasticLoclist.current())
+    endif
+endfunction " }}}2
+
 function! s:BufEnterHook() " {{{2
     call syntastic#log#debug(g:SyntasticDebugAutocommands,
         \ 'autocmd: BufEnter, buffer ' . bufnr("") . ' = ' . string(bufname(str2nr(bufnr("")))) .
         \ ', &buftype = ' . string(&buftype))
     if &buftype == ''
-        call s:notifiers.refresh(g:SyntasticLoclist.current())
+        "call s:notifiers.refresh(g:SyntasticLoclist.current())
     elseif &buftype == 'quickfix'
         " TODO: this is needed because in recent versions of Vim lclose
         " can no longer be called from BufWinLeave
