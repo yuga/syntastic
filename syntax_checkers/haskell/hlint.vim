@@ -10,6 +10,12 @@ if exists('g:loaded_syntastic_haskell_hlint_checker')
 endif
 let g:loaded_syntastic_haskell_hlint_checker = 1
 
+if exists('g:syntastic_haskell_hlint_hint_file')
+    let s:hlint_option = ' --hint=' . g:syntastic_haskell_hlint_hint_file
+else
+    let s:hlint_option = ''
+endif
+
 let s:save_cpo = &cpo
 set cpo&vim
 
@@ -23,7 +29,7 @@ function! SyntaxCheckers_haskell_hlint_GetLocList() dict
         \ '%C%m'
 
     return SyntasticMake({
-        \ 'makeprg': makeprg,
+        \ 'makeprg': makeprg . s:hlint_option,
         \ 'errorformat': errorformat,
         \ 'defaults': {'vcol': 1},
         \ 'postprocess': ['compressWhitespace'] })
@@ -31,7 +37,7 @@ endfunction
 
 call g:SyntasticRegistry.CreateAndRegisterChecker({
     \ 'filetype': 'haskell',
-    \ 'name': 'hlint'})
+    \ 'name': 'hlint' })
 
 let &cpo = s:save_cpo
 unlet s:save_cpo
