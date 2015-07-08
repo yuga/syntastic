@@ -65,21 +65,21 @@ function! SyntaxCheckers_haskell_ghc_mod_GetLocList() dict
         \ '%E%f:%l:%c:,' .
         \ '%Z%m'
 
-    let l:options = { 'ghc_mod_cmd': 'ghc-mod', 'ghc_modi_cmd': 'ghc-modi' }
+    let l:options = { 'ghc_mod_cmd': ['ghc-mod'], 'ghc_modi_cmd': ['ghc-modi'] }
 
     if g:syntastic_haskell_ghc_mod_config_file_enabled
         call s:LoadConfigFile()
-        let l:options = {}
         if exists('g:ghc_mod_cmd')
             let l:options['ghc_mod_cmd'] = g:ghc_mod_cmd
         endif
         if exists('g:ghc_modi_cmd')
             let l:options['ghc_modi_cmd'] = g:ghc_modi_cmd
         endif
-
     endif
 
-    if executable(l:options['ghc_modi_cmd']) && s:exists_vimproc
+    "echomsg string(l:options)
+
+    if executable(l:options['ghc_modi_cmd'][0]) && s:exists_vimproc
         "echomsg 'use ghc-modi'
         let hsfile = self.makeprgBuild({ 'exe': '' })
         "echomsg 'hsfile: ' . makeprg
@@ -120,6 +120,9 @@ function! GhcModiMakeErrLines(hsfile, options)
         endif
     endfor
 
+    let cmds = copy(a:options['ghc_modi_cmd'])
+    call extend(cmds, ["-b", nr2char(11)])
+
     if !exists('l:proc')
         if l:num_procs >= g:ghc_modi_maxnum
             let l:proc_old = s:syntastic_haskell_ghc_modi_procs[0]
@@ -127,7 +130,6 @@ function! GhcModiMakeErrLines(hsfile, options)
             call l:proc_old.stdin.close()
             call l:proc_old.waitpid()
         endif
-        let cmds = [a:options['ghc_modi_cmd'], "-b", nr2char(11)]
         let l:proc = vimproc#popen3(cmds)
         call extend(l:proc, { 'cwd': cwd, 'last_access': localtime() })
     endif
@@ -138,7 +140,7 @@ function! GhcModiMakeErrLines(hsfile, options)
     let l:out = []
 
     if l:proc.stdout.eof
-        let l:res = split(vimproc#system(a:options['ghc_modi_cmd']), "\n", 1)
+        let l:res = split(vimproc#system(cmds), nr2char(11), 1)
     endif
 
     while (empty(l:res) || (l:res[-1] != 'OK' && l:res[-1] != 'NG')) && !l:proc.stdout.eof
