@@ -120,8 +120,14 @@ function! GhcModiMakeErrLines(hsfile, options)
         endif
     endfor
 
-    let cmds = copy(a:options['ghc_modi_cmd'])
-    call extend(cmds, ["-b", nr2char(11)])
+    if len(a:options['ghc_modi_cmd']) == 1
+        let cmds = copy(a:options['ghc_modi_cmd'])
+        call extend(cmds, ["-b", nr2char(11)])
+    else
+        let cmds = a:options['ghc_modi_cmd'][:0]
+        call extend(cmds, ["-b", nr2char(11)])
+        call extend(cmds, a:options['ghc_modi_cmd'][1:])
+    endif
 
     if !exists('l:proc')
         if l:num_procs >= g:ghc_modi_maxnum
@@ -132,12 +138,12 @@ function! GhcModiMakeErrLines(hsfile, options)
         endif
         let l:proc = vimproc#popen3(cmds)
         call extend(l:proc, { 'cwd': cwd, 'last_access': localtime() })
+        "sleep 200m
     endif
 
     "call syntastic#log#debug(g:SyntasticDebugNotifications, 'ghc-modi: l:proc=' . string(l:proc))
-    call l:proc.stdin.write('check ' . a:hsfile . "\n")
+    call l:proc.stdin.write("check " . a:hsfile . "\n")
     let l:res = l:proc.stdout.read_lines(100, 10000)
-    let l:out = []
 
     if l:proc.stdout.eof
         let l:res = split(vimproc#system(cmds), nr2char(11), 1)
