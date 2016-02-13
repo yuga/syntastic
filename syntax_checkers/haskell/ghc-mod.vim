@@ -77,19 +77,19 @@ function! SyntaxCheckers_haskell_ghc_mod_GetLocList() dict
         endif
     endif
 
-    "echomsg string(l:options)
+    echomsg string(l:options)
 
     if executable(l:options['ghc_modi_cmd'][0]) && s:exists_vimproc
-        "echomsg 'use ghc-modi'
+        echomsg 'use ghc-modi'
         let hsfile = self.makeprgBuild({ 'exe': '' })
-        "echomsg 'hsfile: ' . makeprg
+        echomsg 'hsfile: ' . makeprg
 
         return SyntasticMake({
             \ 'err_lines': GhcModiMakeErrLines(hsfile, l:options),
             \ 'errorformat': errorformat,
             \ 'postfunc': 'SyntaxCheckers_haskell_ghc_mod_Popstprocess'})
     else
-        "echomsg 'use ghc-mod'
+        echomsg 'use ghc-mod'
         let makeprg = self.makeprgBuild({
             \ 'exe': self.getExecEscaped() . ' check' . (s:ghc_mod_new ? " --boundary='" . nr2char(11) . "'" : ' ') })
 
