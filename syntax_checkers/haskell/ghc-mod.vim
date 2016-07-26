@@ -46,7 +46,7 @@ function! SyntaxCheckers_haskell_ghc_mod_IsAvailable() dict
         try
             call vimproc#version()
             let s:exists_vimproc = 1
-            echomsg 'vimproc standby'
+            "echomsg 'vimproc standby'
         catch
             let s:exists_vimproc = 0
         endtry
@@ -61,11 +61,12 @@ function! SyntaxCheckers_haskell_ghc_mod_GetLocList() dict
         \ '%f:%l:%c:%tarning: %m,'.
         \ '%f:%l:%c: %trror: %m,' .
         \ '%f:%l:%c: %tarning: %m,' .
+        \ '%W%f:%l:%c:getPrimaryKey: %m,' .
         \ '%f:%l:%c:%m,' .
         \ '%E%f:%l:%c:,' .
         \ '%Z%m'
 
-    let l:options = { 'ghc_mod_cmd': ['ghc-mod'], 'ghc_modi_cmd': ['ghc-modi'] }
+    let l:options = { 'ghc_mod_cmd': ['ghc-mod'], 'ghc_modi_cmd': ['ghc-mod', 'legacy-interactive'] }
 
     if g:syntastic_haskell_ghc_mod_config_file_enabled
         call s:LoadConfigFile()
@@ -77,19 +78,19 @@ function! SyntaxCheckers_haskell_ghc_mod_GetLocList() dict
         endif
     endif
 
-    echomsg string(l:options)
+    "echomsg string(l:options)
 
     if executable(l:options['ghc_modi_cmd'][0]) && s:exists_vimproc
-        echomsg 'use ghc-modi'
+        "echomsg 'use ghc-modi'
         let hsfile = self.makeprgBuild({ 'exe': '' })
-        echomsg 'hsfile: ' . makeprg
+        "echomsg 'hsfile: ' . hsfile
 
         return SyntasticMake({
             \ 'err_lines': GhcModiMakeErrLines(hsfile, l:options),
             \ 'errorformat': errorformat,
             \ 'postfunc': 'SyntaxCheckers_haskell_ghc_mod_Popstprocess'})
     else
-        echomsg 'use ghc-mod'
+        "echomsg 'use ghc-mod'
         let makeprg = self.makeprgBuild({
             \ 'exe': self.getExecEscaped() . ' check' . (s:ghc_mod_new ? " --boundary='" . nr2char(11) . "'" : ' ') })
 
@@ -104,6 +105,19 @@ function! SyntaxCheckers_haskell_ghc_mod_GetLocList() dict
 endfunction
 
 function! GhcModiMakeErrLines(hsfile, options)
+    if len(a:options['ghc_modi_cmd']) == 1
+        let cmds = copy(a:options['ghc_modi_cmd'])
+        call extend(cmds, ["-b", nr2char(11)])
+    else
+        let cmds = a:options['ghc_modi_cmd'][:0]
+        call extend(cmds, ["-b", nr2char(11)])
+        call extend(cmds, a:options['ghc_modi_cmd'][1:])
+    endif
+
+    "let cmd = copy(a:options['ghc_mod_cmd'])
+    "call extend(cmd, ['root'])
+    "execute 'cd' vimproc#system(cmd)[:-2]
+
     let cwd = getcwd()
 
     let l:num_procs = len(s:syntastic_haskell_ghc_modi_procs)
@@ -119,15 +133,6 @@ function! GhcModiMakeErrLines(hsfile, options)
             break
         endif
     endfor
-
-    if len(a:options['ghc_modi_cmd']) == 1
-        let cmds = copy(a:options['ghc_modi_cmd'])
-        call extend(cmds, ["-b", nr2char(11)])
-    else
-        let cmds = a:options['ghc_modi_cmd'][:0]
-        call extend(cmds, ["-b", nr2char(11)])
-        call extend(cmds, a:options['ghc_modi_cmd'][1:])
-    endif
 
     if !exists('l:proc')
         if l:num_procs >= g:ghc_modi_maxnum
@@ -210,7 +215,8 @@ endfunction
 
 call g:SyntasticRegistry.CreateAndRegisterChecker({
     \ 'filetype': 'haskell',
-    \ 'name': 'ghc_mod' })
+    \ 'name': 'ghc_mod',
+    \ 'exec': 'ghc-mod' })
 
 let &cpo = s:save_cpo
 unlet s:save_cpo
