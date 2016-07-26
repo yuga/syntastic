@@ -8,12 +8,16 @@
 if exists('g:loaded_syntastic_haskell_hlint_checker')
     finish
 endif
+
 let g:loaded_syntastic_haskell_hlint_checker = 1
+let s:hlint_option = ''
 
 if exists('g:syntastic_haskell_hlint_hint_file')
-    let s:hlint_option = ' --hint=' . g:syntastic_haskell_hlint_hint_file
-else
-    let s:hlint_option = ''
+    let s:hlint_option = s:hlint_option . ' --hint=' . g:syntastic_haskell_hlint_hint_file
+endif
+
+if exists('g:syntastic_haskell_hlint_datadir')
+    let s:hlint_option = s:hlint_option . ' -d=' . g:syntastic_haskell_hlint_datadir
 endif
 
 let s:save_cpo = &cpo
@@ -27,6 +31,7 @@ function! SyntaxCheckers_haskell_hlint_GetLocList() dict
         \ '%E%f:%l:%v: Error while reading hint file\, %m,' .
         \ '%E%f:%l:%v: Error: %m,' .
         \ '%W%f:%l:%v: Warning: %m,' .
+        \ '%W%f:%l:%v: Suggestion: %m,' .
         \ '%C%m'
 
     return SyntasticMake({

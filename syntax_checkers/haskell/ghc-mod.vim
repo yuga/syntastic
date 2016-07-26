@@ -46,7 +46,7 @@ function! SyntaxCheckers_haskell_ghc_mod_IsAvailable() dict
         try
             call vimproc#version()
             let s:exists_vimproc = 1
-            "echomsg 'vimproc standby'
+            echomsg 'vimproc standby'
         catch
             let s:exists_vimproc = 0
         endtry
@@ -210,8 +210,7 @@ endfunction
 
 call g:SyntasticRegistry.CreateAndRegisterChecker({
     \ 'filetype': 'haskell',
-    \ 'name': 'ghc_mod',
-    \ 'exec': 'ghc-mod' })
+    \ 'name': 'ghc_mod' })
 
 let &cpo = s:save_cpo
 unlet s:save_cpo

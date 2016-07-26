@@ -1,7 +1,7 @@
 "============================================================================
-"File:        mdl.vim
-"Description: Syntax checking plugin for syntastic.vim
-"Maintainer:  Charles Beynon <etothepiipower at gmail dot com>
+"File:        pycodestyle.vim
+"Description: Syntax checking plugin for syntastic
+"Maintainer:  LCD 47 <lcd047 at gmail dot com>
 "License:     This program is free software. It comes without any warranty,
 "             to the extent permitted by applicable law. You can redistribute
 "             it and/or modify it under the terms of the Do What The Fuck You
@@ -10,34 +10,37 @@
 "
 "============================================================================
 
-if exists('g:loaded_syntastic_markdown_mdl_checker')
+if exists('g:loaded_syntastic_python_pycodestyle_checker')
     finish
 endif
-let g:loaded_syntastic_markdown_mdl_checker = 1
-
-if !exists('g:syntastic_markdown_mdl_sort')
-    let g:syntastic_markdown_mdl_sort = 1
-endif
+let g:loaded_syntastic_python_pycodestyle_checker = 1
 
 let s:save_cpo = &cpo
 set cpo&vim
 
-function! SyntaxCheckers_markdown_mdl_GetLocList() dict
-    let makeprg = self.makeprgBuild({ 'args': '--warnings' })
+function! SyntaxCheckers_python_pycodestyle_GetLocList() dict
+    let makeprg = self.makeprgBuild({})
 
-    let errorformat =
-        \ '%E%f:%\s%\=%l: %m,'.
-        \ '%W%f: Kramdown Warning: %m found on line %l'
+    let errorformat = '%f:%l:%c: %m'
 
-    return SyntasticMake({
+    let env = syntastic#util#isRunningWindows() ? {} : { 'TERM': 'dumb' }
+
+    let loclist = SyntasticMake({
         \ 'makeprg': makeprg,
         \ 'errorformat': errorformat,
+        \ 'env': env,
         \ 'subtype': 'Style' })
+
+    for e in loclist
+        let e['type'] = e['text'] =~? '^W' ? 'W' : 'E'
+    endfor
+
+    return loclist
 endfunction
 
 call g:SyntasticRegistry.CreateAndRegisterChecker({
-    \ 'filetype': 'markdown',
-    \ 'name': 'mdl'})
+    \ 'filetype': 'python',
+    \ 'name': 'pycodestyle'})
 
 let &cpo = s:save_cpo
 unlet s:save_cpo
